@@ -124,7 +124,9 @@ export default function InterviewPage() {
         });
 
         if (!response.ok) {
-          throw new Error("Failed to evaluate an answer");
+          const errorData = await response.json().catch(() => ({}));
+          console.error("API Error Response:", response.status, errorData);
+          throw new Error(`Failed to evaluate answer: ${response.status} ${errorData.error || ""}`);
         }
 
         const result = await response.json();

@@ -2,9 +2,21 @@ import { GoogleGenerativeAI } from "@google/generative-ai";
 
 const apiKey = process.env.NEXT_PUBLIC_GEMINI_API_KEY;
 if (!apiKey) {
-  throw new Error("NEXT_PUBLIC_GEMINI_API_KEY environment variable is not set");
+  console.error("NEXT_PUBLIC_GEMINI_API_KEY is not set in environment variables");
+  // Don't throw immediately - allow module to load and throw at runtime when used
 }
-const genAI = new GoogleGenerativeAI(apiKey);
+
+let genAI: GoogleGenerativeAI | null = null;
+
+function getGenAI(): GoogleGenerativeAI {
+  if (!apiKey) {
+    throw new Error("NEXT_PUBLIC_GEMINI_API_KEY environment variable is not set. Please check your Vercel environment variables.");
+  }
+  if (!genAI) {
+    genAI = new GoogleGenerativeAI(apiKey);
+  }
+  return genAI;
+}
 
 const cleanJsonResponse = (text: string) => {
   const cleaned = text.replace(/```json\n?/g, "").replace(/```\n?/g, "");
@@ -23,7 +35,7 @@ export async function generateInterviewQuestions(
   ocrText?: string
 ) {
   try {
-    const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash-lite" });
+    const model = getGenAI().getGenerativeModel({ model: "gemini-2.5-flash-lite" });
     const context = ocrText ? `\n\nResume/Profile Text:\n${ocrText}` : "";
     const prompt = `You are an expert technical interviewer. Generate exactly 5 technical interview questions and answers for the following position:
 
@@ -55,7 +67,7 @@ export async function evaluateAnswer(question: string, correctAnswer: string, us
 
   for (let attempt = 1; attempt <= maxRetries; attempt++) {
     try {
-      const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash-lite" });
+      const model = getGenAI().getGenerativeModel({ model: "gemini-2.5-flash-lite" });
       const prompt = `You are an expert technical interviewer evaluating a candidate's answer.
 
 Question: ${question}
@@ -95,7 +107,7 @@ Return ONLY valid JSON, no other text.`;
 
 export async function extractPdfInfoFromOcr(ocrText: string) {
   try {
-    const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash-lite" });
+    const model = getGenAI().getGenerativeModel({ model: "gemini-2.5-flash-lite" });
     const prompt = `Extract information from this resume text:
 
 ${ocrText}

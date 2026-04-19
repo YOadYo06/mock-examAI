@@ -57,8 +57,10 @@ export async function POST(req: NextRequest) {
     });
   } catch (error) {
     console.error("Error evaluating answer:", error);
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    console.error("Error details:", errorMessage);
     return NextResponse.json(
-      { error: "Failed to evaluate answer" },
+      { error: `Failed to evaluate answer: ${errorMessage}` },
       { status: 500 }
     );
   }
