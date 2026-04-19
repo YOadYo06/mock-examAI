@@ -1,24 +1,23 @@
-import OpenAI from "openai";
+import Groq from "groq-sdk";
 
-const apiKey = process.env.NVIDIA_API_KEY;
+const apiKey = process.env.GROQ_API_KEY;
 if (!apiKey) {
-  console.error("NVIDIA_API_KEY is not set in environment variables");
+  console.error("GROQ_API_KEY is not set in environment variables");
   // Don't throw immediately - allow module to load and throw at runtime when used
 }
 
-let openaiClient: OpenAI | null = null;
+let groqClient: Groq | null = null;
 
-function getOpenAI(): OpenAI {
+function getGroq(): Groq {
   if (!apiKey) {
-    throw new Error("NVIDIA_API_KEY environment variable is not set. Please check your environment variables.");
+    throw new Error("GROQ_API_KEY environment variable is not set. Please check your environment variables.");
   }
-  if (!openaiClient) {
-    openaiClient = new OpenAI({
+  if (!groqClient) {
+    groqClient = new Groq({
       apiKey: apiKey,
-      baseURL: "https://integrate.api.nvidia.com/v1",
     });
   }
-  return openaiClient;
+  return groqClient;
 }
 
 const cleanJsonResponse = (text: string) => {
@@ -38,7 +37,7 @@ export async function generateInterviewQuestions(
   ocrText?: string
 ) {
   try {
-    const client = getOpenAI();
+    const client = getGroq();
     const context = ocrText ? `\n\nResume/Profile Text:\n${ocrText}` : "";
     const prompt = `You are an expert technical interviewer. Generate exactly 5 technical interview questions and answers for the following position:
 
@@ -54,10 +53,9 @@ Generate the response as a valid JSON array with exactly 5 objects. Each object 
 Important: Questions should be technical and relevant. Answers should be comprehensive but concise. Return ONLY valid JSON, no other text.`;
     
     const completion = await client.chat.completions.create({
-      model: "z-ai/glm4.7",
+      model: "mixtral-8x7b-32768",
       messages: [{ role: "user", content: prompt }],
-      temperature: 1,
-      top_p: 1,
+      temperature: 0.7,
       max_tokens: 2048,
     });
 
@@ -79,7 +77,7 @@ export async function evaluateAnswer(question: string, correctAnswer: string, us
 
   for (let attempt = 1; attempt <= maxRetries; attempt++) {
     try {
-      const client = getOpenAI();
+      const client = getGroq();
       const prompt = `You are an expert technical interviewer evaluating a candidate's answer.
 
 Question: ${question}
@@ -97,10 +95,9 @@ Evaluate and provide a rating (1-10) and detailed feedback. Return as JSON:
 Return ONLY valid JSON, no other text.`;
       
       const completion = await client.chat.completions.create({
-        model: "z-ai/glm4.7",
+        model: "mixtral-8x7b-32768",
         messages: [{ role: "user", content: prompt }],
-        temperature: 1,
-        top_p: 1,
+        temperature: 0.5,
         max_tokens: 1024,
       });
 
@@ -128,7 +125,7 @@ Return ONLY valid JSON, no other text.`;
 
 export async function extractPdfInfoFromOcr(ocrText: string) {
   try {
-    const client = getOpenAI();
+    const client = getGroq();
     const prompt = `You are a resume parser. Extract information from this resume text and return ONLY a JSON object:
 
 Resume Text:
@@ -138,10 +135,9 @@ Return ONLY this JSON format with no extra text:
 {"position":"job title","description":"job description","experience":0,"techStack":"tech,stack"}`;
     
     const completion = await client.chat.completions.create({
-      model: "z-ai/glm4.7",
+      model: "mixtral-8x7b-32768",
       messages: [{ role: "user", content: prompt }],
       temperature: 0.3,
-      top_p: 0.9,
       max_tokens: 256,
     });
 
