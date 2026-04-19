@@ -53,7 +53,7 @@ Generate the response as a valid JSON array with exactly 5 objects. Each object 
 Important: Questions should be technical and relevant. Answers should be comprehensive but concise. Return ONLY valid JSON, no other text.`;
     
     const completion = await client.chat.completions.create({
-      model: "llama-3.1-70b-versatile",
+      model: "llama-3.3-70b-versatile",
       messages: [{ role: "user", content: prompt }],
       temperature: 0.7,
       max_tokens: 2048,
@@ -95,7 +95,7 @@ Evaluate and provide a rating (1-10) and detailed feedback. Return as JSON:
 Return ONLY valid JSON, no other text.`;
       
       const completion = await client.chat.completions.create({
-        model: "llama-3.1-70b-versatile",
+        model: "llama-3.3-70b-versatile",
         messages: [{ role: "user", content: prompt }],
         temperature: 0.5,
         max_tokens: 1024,
@@ -135,7 +135,7 @@ Return ONLY this JSON format with no extra text:
 {"position":"job title","description":"job description","experience":0,"techStack":"tech,stack"}`;
     
     const completion = await client.chat.completions.create({
-      model: "llama-3.1-70b-versatile",
+      model: "llama-3.3-70b-versatile",
       messages: [{ role: "user", content: prompt }],
       temperature: 0.3,
       max_tokens: 256,
