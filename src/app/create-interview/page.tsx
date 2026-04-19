@@ -28,14 +28,27 @@ const PdfUploader = dynamic(() => import("@/components/pdf-uploader"), {
   loading: () => <div className="p-6 text-gray-600">Loading PDF uploader...</div>,
 });
 
-const formSchema = z.object({
+const baseSchema = z.object({
   position: z.string().min(1, "Position is required").max(100),
   description: z.string().min(10, "Description is required"),
-  experience: z.coerce.number().min(0, "Experience cannot be negative"),
+  experience: z.any().transform((val) => {
+    const num = typeof val === 'string' ? parseInt(val, 10) : Number(val);
+    if (isNaN(num) || num < 0) {
+      throw new Error("Experience must be a non-negative number");
+    }
+    return num;
+  }),
   techStack: z.string().min(1, "Tech stack is required"),
 });
 
-type FormData = z.infer<typeof formSchema>;
+const formSchema = baseSchema;
+
+type FormData = {
+  position: string;
+  description: string;
+  experience: number;
+  techStack: string;
+};
 
 export default function CreateInterviewPage() {
   const { userId } = useAuth();
@@ -128,7 +141,7 @@ export default function CreateInterviewPage() {
               <FormField
                 control={form.control}
                 name="position"
-                render={({ field }) => (
+                render={({ field }: { field: any }) => (
                   <FormItem>
                     <FormLabel>Position *</FormLabel>
                     <FormControl>
@@ -146,7 +159,7 @@ export default function CreateInterviewPage() {
               <FormField
                 control={form.control}
                 name="description"
-                render={({ field }) => (
+                render={({ field }: { field: any }) => (
                   <FormItem>
                     <FormLabel>Job Description *</FormLabel>
                     <FormControl>
@@ -165,7 +178,7 @@ export default function CreateInterviewPage() {
               <FormField
                 control={form.control}
                 name="experience"
-                render={({ field }) => (
+                render={({ field }: { field: any }) => (
                   <FormItem>
                     <FormLabel>Years of Experience *</FormLabel>
                     <FormControl>
@@ -184,7 +197,7 @@ export default function CreateInterviewPage() {
               <FormField
                 control={form.control}
                 name="techStack"
-                render={({ field }) => (
+                render={({ field }: { field: any }) => (
                   <FormItem>
                     <FormLabel>Tech Stack *</FormLabel>
                     <FormControl>

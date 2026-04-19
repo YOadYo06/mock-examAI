@@ -22,7 +22,7 @@ export default function RecordAnswer({
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const recognitionRef = useRef<any>(null);
   const onAnswerChangeRef = useRef(onAnswerChange);
-  const debounceTimerRef = useRef<NodeJS.Timeout>();
+  const debounceTimerRef = useRef<NodeJS.Timeout | undefined>(undefined);
 
   // Keep track of the latest onAnswerChange function
   useEffect(() => {
