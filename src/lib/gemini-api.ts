@@ -1,21 +1,24 @@
-import { GoogleGenerativeAI } from "@google/generative-ai";
+import OpenAI from "openai";
 
-const apiKey = process.env.NEXT_PUBLIC_GEMINI_API_KEY;
+const apiKey = process.env.NVIDIA_API_KEY;
 if (!apiKey) {
-  console.error("NEXT_PUBLIC_GEMINI_API_KEY is not set in environment variables");
+  console.error("NVIDIA_API_KEY is not set in environment variables");
   // Don't throw immediately - allow module to load and throw at runtime when used
 }
 
-let genAI: GoogleGenerativeAI | null = null;
+let openaiClient: OpenAI | null = null;
 
-function getGenAI(): GoogleGenerativeAI {
+function getOpenAI(): OpenAI {
   if (!apiKey) {
-    throw new Error("NEXT_PUBLIC_GEMINI_API_KEY environment variable is not set. Please check your Vercel environment variables.");
+    throw new Error("NVIDIA_API_KEY environment variable is not set. Please check your environment variables.");
   }
-  if (!genAI) {
-    genAI = new GoogleGenerativeAI(apiKey);
+  if (!openaiClient) {
+    openaiClient = new OpenAI({
+      apiKey: apiKey,
+      baseURL: "https://integrate.api.nvidia.com/v1",
+    });
   }
-  return genAI;
+  return openaiClient;
 }
 
 const cleanJsonResponse = (text: string) => {
@@ -35,7 +38,7 @@ export async function generateInterviewQuestions(
   ocrText?: string
 ) {
   try {
-    const model = getGenAI().getGenerativeModel({ model: "gemini-1.5-flash" });
+    const client = getOpenAI();
     const context = ocrText ? `\n\nResume/Profile Text:\n${ocrText}` : "";
     const prompt = `You are an expert technical interviewer. Generate exactly 5 technical interview questions and answers for the following position:
 
@@ -49,8 +52,17 @@ Generate the response as a valid JSON array with exactly 5 objects. Each object 
 - "answer": The ideal/expected answer (string)
 
 Important: Questions should be technical and relevant. Answers should be comprehensive but concise. Return ONLY valid JSON, no other text.`;
-    const result = await model.generateContent(prompt);
-    const cleanedJson = cleanJsonResponse(result.response.text());
+    
+    const completion = await client.chat.completions.create({
+      model: "z-ai/glm4.7",
+      messages: [{ role: "user", content: prompt }],
+      temperature: 1,
+      top_p: 1,
+      max_tokens: 2048,
+    });
+
+    const responseText = completion.choices[0]?.message?.content || "";
+    const cleanedJson = cleanJsonResponse(responseText);
     const questions = JSON.parse(cleanedJson);
     if (!Array.isArray(questions) || questions.length !== 5) throw new Error("Invalid response format");
     return questions;
@@ -67,7 +79,7 @@ export async function evaluateAnswer(question: string, correctAnswer: string, us
 
   for (let attempt = 1; attempt <= maxRetries; attempt++) {
     try {
-      const model = getGenAI().getGenerativeModel({ model: "gemini-1.5-flash" });
+      const client = getOpenAI();
       const prompt = `You are an expert technical interviewer evaluating a candidate's answer.
 
 Question: ${question}
@@ -83,8 +95,17 @@ Evaluate and provide a rating (1-10) and detailed feedback. Return as JSON:
 }
 
 Return ONLY valid JSON, no other text.`;
-      const result = await model.generateContent(prompt);
-      const cleanedJson = cleanJsonResponse(result.response.text());
+      
+      const completion = await client.chat.completions.create({
+        model: "z-ai/glm4.7",
+        messages: [{ role: "user", content: prompt }],
+        temperature: 1,
+        top_p: 1,
+        max_tokens: 1024,
+      });
+
+      const responseText = completion.choices[0]?.message?.content || "";
+      const cleanedJson = cleanJsonResponse(responseText);
       const evaluation = JSON.parse(cleanedJson);
       return {
         rating: Math.min(10, Math.max(1, parseInt(evaluation.rating) || 5)),
@@ -107,7 +128,7 @@ Return ONLY valid JSON, no other text.`;
 
 export async function extractPdfInfoFromOcr(ocrText: string) {
   try {
-    const model = getGenAI().getGenerativeModel({ model: "gemini-1.5-flash" });
+    const client = getOpenAI();
     const prompt = `Extract information from this resume text:
 
 ${ocrText}
@@ -121,8 +142,17 @@ Return as JSON with these fields (use reasonable defaults if not found):
 }
 
 Return ONLY valid JSON, no other text.`;
-    const result = await model.generateContent(prompt);
-    const cleanedJson = cleanJsonResponse(result.response.text());
+    
+    const completion = await client.chat.completions.create({
+      model: "z-ai/glm4.7",
+      messages: [{ role: "user", content: prompt }],
+      temperature: 1,
+      top_p: 1,
+      max_tokens: 512,
+    });
+
+    const responseText = completion.choices[0]?.message?.content || "";
+    const cleanedJson = cleanJsonResponse(responseText);
     const info = JSON.parse(cleanedJson);
     return {
       position: info.position || "",
