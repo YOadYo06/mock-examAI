@@ -35,7 +35,7 @@ export async function generateInterviewQuestions(
   ocrText?: string
 ) {
   try {
-    const model = getGenAI().getGenerativeModel({ model: "gemini-3.1-flash-lite" });
+    const model = getGenAI().getGenerativeModel({ model: "gemini-1.5-flash" });
     const context = ocrText ? `\n\nResume/Profile Text:\n${ocrText}` : "";
     const prompt = `You are an expert technical interviewer. Generate exactly 5 technical interview questions and answers for the following position:
 
@@ -67,7 +67,7 @@ export async function evaluateAnswer(question: string, correctAnswer: string, us
 
   for (let attempt = 1; attempt <= maxRetries; attempt++) {
     try {
-      const model = getGenAI().getGenerativeModel({ model: "gemini-3.1-flash-lite" });
+      const model = getGenAI().getGenerativeModel({ model: "gemini-1.5-flash" });
       const prompt = `You are an expert technical interviewer evaluating a candidate's answer.
 
 Question: ${question}
@@ -107,7 +107,7 @@ Return ONLY valid JSON, no other text.`;
 
 export async function extractPdfInfoFromOcr(ocrText: string) {
   try {
-    const model = getGenAI().getGenerativeModel({ model: "gemini-3.1-flash-lite" });
+    const model = getGenAI().getGenerativeModel({ model: "gemini-1.5-flash" });
     const prompt = `Extract information from this resume text:
 
 ${ocrText}
