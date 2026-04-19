@@ -1,9 +1,13 @@
 import { GoogleGenerativeAI } from "@google/generative-ai";
 
-const genAI = new GoogleGenerativeAI(process.env.NEXT_PUBLIC_GEMINI_API_KEY);
+const apiKey = process.env.NEXT_PUBLIC_GEMINI_API_KEY;
+if (!apiKey) {
+  throw new Error("NEXT_PUBLIC_GEMINI_API_KEY environment variable is not set");
+}
+const genAI = new GoogleGenerativeAI(apiKey);
 
 const cleanJsonResponse = (text: string) => {
-  let cleaned = text.replace(/```json\n?/g, "").replace(/```\n?/g, "");
+  const cleaned = text.replace(/```json\n?/g, "").replace(/```\n?/g, "");
   const arrayMatch = cleaned.match(/\[[\s\S]*\]/);
   const objectMatch = cleaned.match(/\{[\s\S]*\}/);
   if (arrayMatch) return arrayMatch[0];
@@ -47,7 +51,7 @@ Important: Questions should be technical and relevant. Answers should be compreh
 export async function evaluateAnswer(question: string, correctAnswer: string, userAnswer: string) {
   const maxRetries = 5;
   const retryDelay = 3000;
-  let lastError: any;
+  let lastError: Error | null = null;
 
   for (let attempt = 1; attempt <= maxRetries; attempt++) {
     try {
@@ -74,9 +78,10 @@ Return ONLY valid JSON, no other text.`;
         rating: Math.min(10, Math.max(1, parseInt(evaluation.rating) || 5)),
         feedback: evaluation.feedback || "No feedback provided",
       };
-    } catch (error: any) {
-      lastError = error;
-      if (error?.status === 503 && attempt < maxRetries) {
+    } catch (error: unknown) {
+      lastError = error instanceof Error ? error : new Error(String(error));
+      const isServiceUnavailable = error && typeof error === "object" && "status" in error && (error as Record<string, unknown>).status === 503;
+      if (isServiceUnavailable && attempt < maxRetries) {
         const delay = retryDelay * attempt;
         console.log(`API unavailable, retrying in ${delay}ms... (attempt ${attempt}/${maxRetries})`);
         await new Promise(resolve => setTimeout(resolve, delay));
