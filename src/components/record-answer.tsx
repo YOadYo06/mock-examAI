@@ -23,6 +23,8 @@ export default function RecordAnswer({
   const recognitionRef = useRef<any>(null);
   const onAnswerChangeRef = useRef(onAnswerChange);
   const debounceTimerRef = useRef<NodeJS.Timeout | undefined>(undefined);
+  const isRecognitionActiveRef = useRef(false);
+  const isRecognitionStartingRef = useRef(false);
 
   // Keep track of the latest onAnswerChange function
   useEffect(() => {
@@ -52,6 +54,8 @@ export default function RecordAnswer({
       recognitionRef.current.language = "en-US";
 
       recognitionRef.current.onstart = () => {
+        isRecognitionStartingRef.current = false;
+        isRecognitionActiveRef.current = true;
         setInterimTranscript("");
       };
 
@@ -86,12 +90,28 @@ export default function RecordAnswer({
       recognitionRef.current.onerror = (event: any) => {
         console.error("Speech recognition error", event.error);
         toast.error(`Error: ${event.error}`);
+        isRecognitionStartingRef.current = false;
+        isRecognitionActiveRef.current = false;
+        setIsRecording(false);
       };
 
       recognitionRef.current.onend = () => {
+        isRecognitionStartingRef.current = false;
+        isRecognitionActiveRef.current = false;
         setIsRecording(false);
       };
     }
+
+    return () => {
+      if (recognitionRef.current) {
+        try {
+          recognitionRef.current.stop();
+        } catch {
+          // Ignore cleanup errors.
+        }
+      }
+      clearTimeout(debounceTimerRef.current);
+    };
   }, []);
 
   const handleStartRecording = async () => {
@@ -100,19 +120,28 @@ export default function RecordAnswer({
       return;
     }
 
+    if (isRecognitionActiveRef.current || isRecognitionStartingRef.current) {
+      return;
+    }
+
     try {
+      isRecognitionStartingRef.current = true;
       setIsRecording(true);
       setInterimTranscript("");
       recognitionRef.current?.start();
     } catch (error) {
       console.error("Error starting recording:", error);
       toast.error("Failed to start recording");
+      isRecognitionStartingRef.current = false;
       setIsRecording(false);
     }
   };
 
   const handleStopRecording = () => {
     try {
+      if (!isRecognitionActiveRef.current && !isRecognitionStartingRef.current) {
+        return;
+      }
       recognitionRef.current?.stop();
       setIsRecording(false);
       setInterimTranscript("");
