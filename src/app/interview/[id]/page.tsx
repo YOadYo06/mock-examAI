@@ -16,6 +16,7 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { toast } from "sonner";
 import RecordAnswer from "@/components/record-answer";
+import { getFastApiUrl } from "@/lib/fastapi";
 
 interface Question {
   question: string;
@@ -111,15 +112,13 @@ export default function InterviewPage() {
         const userAnswer = userAnswers.get(i);
         if (!userAnswer) continue;
 
-        const response = await fetch("/api/evaluate", {
+        const response = await fetch(`${getFastApiUrl()}/evaluate/single`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             question: interview.questions[i].question,
-            correctAnswer: interview.questions[i].answer,
-            userAnswer,
-            mockIdRef: interviewId,
-            userId,
+            ideal_answer: interview.questions[i].answer,
+            user_answer: userAnswer,
           }),
         });
 

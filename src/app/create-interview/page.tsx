@@ -21,6 +21,9 @@ import {
   FormMessage,
 } from "@/components/ui/form";
 import { toast } from "sonner";
+import { getFastApiUrl } from "@/lib/fastapi";
+import { db } from "@/config/firebase";
+import { addDoc, collection, serverTimestamp } from "firebase/firestore";
 
 // Dynamically import PDF uploader with ssr: false to avoid server-side DOM errors
 const PdfUploader = dynamic(() => import("@/components/pdf-uploader"), {
@@ -39,6 +42,27 @@ const baseSchema = z.object({
     return num;
   }),
   techStack: z.string().min(1, "Tech stack is required"),
+  hrCount: z.any().transform((val) => {
+    const num = typeof val === "string" ? parseInt(val, 10) : Number(val);
+    if (isNaN(num) || num < 0) {
+      throw new Error("HR question count must be 0 or more");
+    }
+    return num;
+  }),
+  techCount: z.any().transform((val) => {
+    const num = typeof val === "string" ? parseInt(val, 10) : Number(val);
+    if (isNaN(num) || num < 0) {
+      throw new Error("Technical question count must be 0 or more");
+    }
+    return num;
+  }),
+  realworldCount: z.any().transform((val) => {
+    const num = typeof val === "string" ? parseInt(val, 10) : Number(val);
+    if (isNaN(num) || num < 0) {
+      throw new Error("Real-world question count must be 0 or more");
+    }
+    return num;
+  }),
 });
 
 const formSchema = baseSchema;
@@ -48,6 +72,9 @@ type FormData = {
   description: string;
   experience: number;
   techStack: string;
+  hrCount: number;
+  techCount: number;
+  realworldCount: number;
 };
 
 export default function CreateInterviewPage() {
@@ -62,6 +89,9 @@ export default function CreateInterviewPage() {
       description: "",
       experience: 0,
       techStack: "",
+      hrCount: 2,
+      techCount: 2,
+      realworldCount: 2,
     },
   });
 
@@ -87,23 +117,69 @@ export default function CreateInterviewPage() {
       setIsLoading(true);
       const toastId = toast.loading("Creating interview...");
 
-      const response = await fetch("/api/interviews", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          ...data,
-          userId,
-        }),
-      });
+      const fetchWithTimeout = async (input: RequestInfo, init: RequestInit, timeoutMs: number) => {
+        const controller = new AbortController();
+        const timer = setTimeout(() => controller.abort(), timeoutMs);
+        try {
+          return await fetch(input, { ...init, signal: controller.signal });
+        } finally {
+          clearTimeout(timer);
+        }
+      };
+
+      const response = await fetchWithTimeout(
+        `${getFastApiUrl()}/interviews/generate`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            position: data.position,
+            description: data.description,
+            experience_years: data.experience,
+            tech_stack: data.techStack.split(",").map((item) => item.trim()).filter(Boolean),
+            n_results: 2,
+            hr_count: data.hrCount,
+            tech_count: data.techCount,
+            realworld_count: data.realworldCount,
+          }),
+        },
+        20000
+      );
 
       if (!response.ok) {
         throw new Error("Failed to create interview");
       }
 
-      const { interviewId } = await response.json();
+      const { questions } = await response.json();
+
+      if (!questions || !Array.isArray(questions) || questions.length === 0) {
+        throw new Error("No questions returned from VectorDB");
+      }
+
+      const interviewsRef = collection(db, "interviews");
+      const addDocWithTimeout = async (timeoutMs: number) => {
+        return await Promise.race([
+          addDoc(interviewsRef, {
+            position: data.position,
+            description: data.description,
+            experience: data.experience,
+            techStack: data.techStack,
+            questions,
+            ocrText: "",
+            userId,
+            createdAt: serverTimestamp(),
+            updatedAt: serverTimestamp(),
+          }),
+          new Promise<never>((_, reject) =>
+            setTimeout(() => reject(new Error("Firestore write timed out")), timeoutMs)
+          ),
+        ]);
+      };
+
+      const docRef = await addDocWithTimeout(15000);
 
       toast.success("Interview created successfully!", { id: toastId });
-      router.push(`/interview/${interviewId}`);
+      router.push(`/interview/${docRef.id}`);
     } catch (error) {
       console.error("Error creating interview:", error);
       toast.error("Failed to create interview");
@@ -211,6 +287,68 @@ export default function CreateInterviewPage() {
                   </FormItem>
                 )}
               />
+
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <FormField
+                  control={form.control}
+                  name="hrCount"
+                  render={({ field }: { field: any }) => (
+                    <FormItem>
+                      <FormLabel>HR Questions</FormLabel>
+                      <FormControl>
+                        <Input
+                          type="number"
+                          min={0}
+                          max={10}
+                          {...field}
+                          disabled={isLoading}
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                <FormField
+                  control={form.control}
+                  name="techCount"
+                  render={({ field }: { field: any }) => (
+                    <FormItem>
+                      <FormLabel>Technical Questions</FormLabel>
+                      <FormControl>
+                        <Input
+                          type="number"
+                          min={0}
+                          max={10}
+                          {...field}
+                          disabled={isLoading}
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                <FormField
+                  control={form.control}
+                  name="realworldCount"
+                  render={({ field }: { field: any }) => (
+                    <FormItem>
+                      <FormLabel>Real-world Questions</FormLabel>
+                      <FormControl>
+                        <Input
+                          type="number"
+                          min={0}
+                          max={10}
+                          {...field}
+                          disabled={isLoading}
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </div>
 
               <div className="flex gap-4 pt-4">
                 <Button type="submit" disabled={isLoading} className="flex-1">

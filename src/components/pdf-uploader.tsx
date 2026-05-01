@@ -3,6 +3,7 @@
 import { useState, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
+import { getFastApiUrl } from "@/lib/fastapi";
 
 interface PdfUploaderProps {
   onPdfProcessed: (data: {
@@ -33,24 +34,26 @@ export default function PdfUploader({ onPdfProcessed, isLoading }: PdfUploaderPr
       const extractedText = await extractTextFromPdf(file);
 
       // Send OCR text to API to extract form fields
-      const response = await fetch("/api/extract-pdf", {
+      const response = await fetch(`${getFastApiUrl()}/nlp/text`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ ocrText: extractedText }),
+        body: JSON.stringify({ cv_text: extractedText }),
       });
 
       if (!response.ok) {
         throw new Error("Failed to extract information");
       }
 
-      const { data } = await response.json();
+      const { profile } = await response.json();
 
       // Call parent callback with extracted data
       onPdfProcessed({
-        position: data.position || "",
-        description: data.description || "",
-        experience: data.experience || 0,
-        techStack: data.techStack || "",
+        position: profile?.position || "",
+        description: profile?.description || "",
+        experience: profile?.experience_years || 0,
+        techStack: Array.isArray(profile?.tech_stack)
+          ? profile.tech_stack.join(", ")
+          : "",
       });
 
       toast.success("PDF processed successfully! Fields auto-filled.", { id: toastId });
